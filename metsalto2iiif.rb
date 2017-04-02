@@ -6,17 +6,21 @@ require 'pry'
 #require 'fastimage'
 
 path = "data/LAA/1907050201"
-doc = Nokogiri::XML(File.open(path + "/1907050201.xml"))
 
-mets = doc.xpath("/xmlns:mets")
+mets = Nokogiri::XML(File.open(path + "/1907050201.xml")).xpath("/xmlns:mets")
+articles = Nokogiri::XML(File.open(path + "/articles_1907050201.xml")).xpath("/xmlns:mets")
 structMap = mets.xpath("xmlns:structMap")
 fileSec = mets.xpath("xmlns:fileSec")
 mods = mets.xpath("xmlns:dmdSec/xmlns:mdWrap/xmlns:xmlData/mods:mods")
 date = mods.xpath("mods:originInfo/mods:dateIssued").text
 
-id = "https://peel.library.ualberta.ca/LAA/" + date.gsub("-", "/")
+id = "http://localhost:8080"
+# could add path: "/LAA/" + date.gsub("-", "/")
 #imageservice = "http://example.org/images"
 imageservice = "http://127.0.0.1:8081"
+
+ocrfiles = fileSec.xpath("xmlns:fileGrp/xmlns:file[@USE='ocr']")
+servicefiles = fileSec.xpath("xmlns:fileGrp/xmlns:file[@USE='service']")
 
 iiif_presentation_context = "http://iiif.io/api/presentation/2/context.json"
 iiif_image_context = "http://iiif.io/api/image/2/context.json"
@@ -46,7 +50,7 @@ sequence = {
 canvases = []
 
 mets.xpath("xmlns:dmdSec[xmlns:mdWrap/@LABEL='Page metadata']").each { |page|
-	pageid = page.xpath("@ID").text # pageModsBib1
+	pageid = page.xpath("@ID").text # e.g. pageModsBib1
 	pagenum = page.xpath("xmlns:mdWrap/xmlns:xmlData/mods:mods/mods:part/mods:extent/mods:start").text
 
 	# get entry in structMap
@@ -84,8 +88,6 @@ but the left side is a nodeset with four members
 
 	fileptrs = structMapEntry.xpath("xmlns:fptr")
 
-	ocrfiles = fileSec.xpath("xmlns:fileGrp/xmlns:file[@USE='ocr']")
-	#debugger
 	# find a fileptr whose @ID matches the @FILEID of one of the ocrfiles
 	matches = nil
 	fileptrs.xpath("@FILEID").each { |fp|
@@ -95,7 +97,6 @@ but the left side is a nodeset with four members
 	ocrfilename = matches[0].xpath("./xmlns:FLocat/@xlink:href").text
 
 	# find the jp2 i.e. the "service" file
-	servicefiles = fileSec.xpath("xmlns:fileGrp/xmlns:file[@USE='service']")
 	matches = nil
 	fileptrs.xpath("@FILEID").each { |fp|
 		matches = servicefiles.filter("*[@ID = '" + fp.text + "']")
@@ -107,6 +108,7 @@ but the left side is a nodeset with four members
 	alto = Nokogiri::XML(File.open(path + "/" + ocrfilename))
 	textblocks = alto.xpath("//xmlns:TextBlock")
 
+# get width and height from image - doesn't work for jp2
 #	width, height = FastImage.size(path + "/" + servicefilename)
 
 # get width and height from text element in ALTO 
@@ -114,6 +116,32 @@ but the left side is a nodeset with four members
 	processingStepSettings = alto.xpath("//xmlns:processingStepSettings")[0].text
 	width = /^width:(\d*)/.match(processingStepSettings).captures[0].to_i
 	height = /^height:(\d*)/.match(processingStepSettings).captures[0].to_i
+
+	# gather toc
+	otherContent = []
+	pagearticles = articles.xpath("//xmlns:dmdSec[xmlns:mdWrap/xmlns:xmlData/mods:mods/mods:identifier=$pageid]", nil, {:pageid => pageid})
+
+	pagearticles.each { |article| 
+		articleid = article.xpath("@ID").text
+		articlejson = id + "/annotation/list/" + articleid + ".json"
+		articlemods = article.xpath("xmlns:mdWrap/xmlns:xmlData/mods:mods")
+		articletitle = articlemods.xpath("mods:titleInfo/mods:title").text
+		if articletitle.empty? 
+			articletitle = "[" + articlemods.xpath("mods:classification").text + "]" 
+		end 
+		articleentry =     {
+	        "@id" => articlejson,
+	        "@type" => "sc:AnnotationList",
+	        "label" => articletitle,
+	        "within" => 
+	        {
+	            "@id" => id + "/annotation/layer/" + articleid + ".json",
+	            "@type" => "sc:Layer",
+	            "label" => "OCR Article Text"
+	        }
+	    }
+	    otherContent.push(articleentry)
+	} 
 
 	canvas = {
 		"@context" => iiif_presentation_context,
@@ -143,13 +171,12 @@ but the left side is a nodeset with four members
 				},
 				"on" => id + "/canvas/p" + pagenum
 			}
-		]
+		],
+		"otherContent" => otherContent
 	}
 	canvases.push(canvas)
-}
+} # page
 
 sequence["canvases"] = canvases
 obj["sequences"] = [sequence]
 puts JSON.pretty_generate(obj)
-
-# http://localhost:5100/metsalto2iiif/data/LAA/1907050201/0005.tif/2048,2048,482,1255/121,/0/default.jpg
