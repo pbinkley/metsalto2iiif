@@ -16,7 +16,7 @@ date = mods.xpath("mods:originInfo/mods:dateIssued").text
 
 id = "https://peel.library.ualberta.ca/LAA/" + date.gsub("-", "/")
 #imageservice = "http://example.org/images"
-imageservice = "http://127.0.0.1"
+imageservice = "http://127.0.0.1:8081"
 
 iiif_presentation_context = "http://iiif.io/api/presentation/2/context.json"
 iiif_image_context = "http://iiif.io/api/image/2/context.json"
@@ -114,7 +114,6 @@ but the left side is a nodeset with four members
 	processingStepSettings = alto.xpath("//xmlns:processingStepSettings")[0].text
 	width = /^width:(\d*)/.match(processingStepSettings).captures[0].to_i
 	height = /^height:(\d*)/.match(processingStepSettings).captures[0].to_i
-
 
 	canvas = {
 		"@context" => iiif_presentation_context,

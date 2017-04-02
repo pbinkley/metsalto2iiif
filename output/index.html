@@ -1,0 +1,33 @@
+<html>
+<head>
+<title>The Advertiser (Lacombe), 2 May 1907</title>
+<link rel='stylesheet' type='text/css' href='https://www.wallandbinkley.com/projects/2016/jekyll-iiif-demo/iiif_viewer/mirador/css/mirador-combined.css'>
+<style>
+#viewer {
+	width: 100vw; 
+	height: 100vh;
+}
+</style>
+</head>
+<body>
+
+<div id='viewer'></div>
+
+<script src='https://www.wallandbinkley.com/projects/2016/jekyll-iiif-demo/iiif_viewer/mirador/mirador.js'></script>
+<script type='text/javascript'>
+
+ $(function() {
+   myMiradorInstance = Mirador({
+     'id': 'viewer',
+     'layout': '1x1',
+     'data': [ {'manifestUri': 'http://localhost:8080/presentation.json', 'location': 'This jekyll-iiif site.'} ],
+     'windowObjects': [{
+     	'loadedManifest': 'http://localhost:8080/presentation.json', 
+     	'viewType': 'BookView'
+     }],
+     'annotationEndpoint': { 'name':'Local Storage', 'module': 'LocalStorageEndpoint' }
+   });
+ });
+</script>
+</body>
+</html>
